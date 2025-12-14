@@ -1,55 +1,61 @@
 pipeline {
     agent any
-    parameters {
-        choice(name: 'ENVIRONMENT', choices: ['UAT','PROD'], description: 'Select deployment environment')
-    }
+
     environment {
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-id') // Jenkins credential ID
-        AWS_CREDENTIALS = credentials('aws-ssh-key-id')      // Jenkins SSH key credential ID
-        IMAGE_NAME = 'swatibalodi01/dotnet-hello-world'    //dockerhub repo name
+        // Jenkins credentials
+        DOCKERHUB = credentials('dockerhub-id')
+        IMAGE_NAME = "swatibalodi01/dotnet-hello"
+        IMAGE_TAG = "${BUILD_NUMBER}"
+
+        // UAT server
+        UAT_SERVER = "34.229.134.21"
+        SSH_CREDENTIALS = "aws-ssh-key-id"
     }
+
     stages {
-        stage('Checkout') {
+
+        stage('Checkout Code') {
             steps {
-                git branch: 'master', url: 'git@github.com:swatibalodi/dotnet-core-jenkins-project.git'
+                git branch: 'main',
+                url: 'git@github.com:swatibalodi/dotnet-core-jenkins-project.git'
             }
         }
+
         stage('Build Docker Image') {
             steps {
-                script {
-                    docker.build("${IMAGE_NAME}:${params.ENVIRONMENT}")
-                }
+                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
             }
         }
+
         stage('Push to Docker Hub') {
             steps {
-                script {
-                    docker.withRegistry('', "${DOCKERHUB_CREDENTIALS}") {
-                        docker.image("${IMAGE_NAME}:${params.ENVIRONMENT}").push()
-                    }
-                }
+                sh """
+                echo ${DOCKERHUB_PSW} | docker login -u ${DOCKERHUB_USR} --password-stdin
+                docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest
+                docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                docker push ${IMAGE_NAME}:latest
+                """
             }
         }
-        stage('Deploy to EC2') {
+
+        stage('Deploy to UAT EC2') {
             steps {
-                script {
-                    def EC2_IP = (params.ENVIRONMENT == 'UAT') ? 'UAT_EC2_IP' : 'PROD_EC2_IP'
+                sshagent(['aws-ssh-key-id']) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no ec2-user@${EC2_IP} '
-                        docker stop dotnet-test || true
-                        docker rm dotnet-test || true
-                        docker pull ${IMAGE_NAME}:${params.ENVIRONMENT}
-                        docker run -d -p 5000:80 --name dotnet-app ${IMAGE_NAME}:${params.ENVIRONMENT}'
+                    ssh -o StrictHostKeyChecking=no ubuntu@${UAT_SERVER} '
+                    docker pull ${IMAGE_NAME}:latest
+                    docker stop dotnet-app || true
+                    docker rm dotnet-app || true
+                    docker run -d -p 80:80 --name dotnet-app ${IMAGE_NAME}:latest
+                    '
                     """
                 }
             }
         }
+
         stage('Health Check') {
             steps {
-                script {
-                    def EC2_IP = (params.ENVIRONMENT == 'UAT') ? 'UAT_EC2_IP' : 'PROD_EC2_IP'
-                    sh "curl http://${EC2_IP}/api/hello"
-                }
+                sh "curl -f http://${UAT_SERVER}/ || exit 1"
             }
         }
     }
