@@ -17,7 +17,7 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 git branch: 'main',
-                url: 'git@github.com:swatibalodi/dotnet-core-jenkins-project.git'
+                url: 'https://github.com/swatibalodi/dotnet-core-jenkins-project.git'
             }
         }
 
