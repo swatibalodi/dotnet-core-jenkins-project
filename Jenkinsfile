@@ -4,7 +4,7 @@ pipeline {
     environment {
         // Jenkins credentials
         DOCKERHUB = credentials('dockerhub-id')
-        IMAGE_NAME = "swatibalodi01/dotnet-hello"
+        IMAGE_NAME = "swatibalodi01/dotnet-hello-world"
         IMAGE_TAG = "${BUILD_NUMBER}"
 
         // UAT server
