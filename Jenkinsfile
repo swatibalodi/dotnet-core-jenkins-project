@@ -5,7 +5,6 @@ pipeline {
         // Jenkins credentials
         DOCKERHUB = credentials('dockerhub-id')
         IMAGE_NAME = "swatibalodi01/dotnet-hello-world"
-        IMAGE_TAG = "${BUILD_NUMBER}"
 
         // UAT server
         UAT_SERVER = "34.229.134.21"
@@ -23,7 +22,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+                sh "docker build -t ${IMAGE_NAME} ."
             }
         }
 
@@ -31,8 +30,8 @@ pipeline {
             steps {
                 sh """
                 echo ${DOCKERHUB_PSW} | docker login -u ${DOCKERHUB_USR} --password-stdin
-                docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest
-                docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                docker tag ${IMAGE_NAME} ${IMAGE_NAME}:latest
+                docker push ${IMAGE_NAME}
                 docker push ${IMAGE_NAME}:latest
                 """
             }
